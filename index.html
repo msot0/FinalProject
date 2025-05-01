@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html>
+<head> 
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;700&display=swap" rel="stylesheet">
+
+  <meta charset="UTF-8">
+  <title>Song Finder</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.js"></script>
+  <style>
+    body {
+      margin:0;
+      font-family: 'Fredoka', sans-serif;
+      background-image: url("picmix.com_2581199.gif");
+      background-repeat: repeat;
+      background-size: auto;
+      background-position: top left;
+      background-attachment: fixed;
+    }
+    #modal {
+  display: none;
+  justify-content: center;
+  align-items: center;
+  position: fixed;
+  top: 0; 
+  left: 0;
+  width: 100%; 
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  z-index: 100;
+}
+
+#modalContent {
+  background: #ffffff;
+  padding: 30px;
+  width: 90%;
+  max-width: 400px;
+  border-radius: 16px;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+    input, button {
+      width:100%;
+      margin-top:12px;
+      padding:12px;
+      font-size:16px;
+      border:none;
+      border-radius:8px;
+    }
+
+    input {
+     background-color: #f0f0f0;
+     text-align: center;
+}
+    button {
+      font-weight:bold;
+      cursor:pointer;
+      font-family: 'Fredoka', sans-serif;
+      border-radius: 20px;
+      letter-spacing: 1px;
+    }
+    ul {
+      list-style:none;
+      margin-top:16px;
+      padding:0;
+      max-height:50vh;
+      overflow-y:auto;
+    }
+    li {
+      background:#f9f9f9;
+      padding:10px;
+      margin-bottom:8px;
+      border-radius:8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    #buttonContainer {
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      height:100vh;
+      width:100vw;
+      position:absolute;
+      top:0;left:0;
+      z-index:10;
+    }
+    #openBtn {
+      width:400px;
+      height:400px;
+      font-size:40px;
+      background: linear-gradient(135deg, #e747cf, #fca33c);
+      color:white;
+      border:none;
+      border-radius:16px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      text-align:center;
+    }
+    #openBtn:hover {
+      background: linear-gradient(135deg, #eb6ad7, #fab86c);
+      transform:scale(1.05);
+    }
+    #searchInput {
+      border:1px solid #ccc;
+    }
+    #resultsList li {
+      background: #f9f9f9;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 6px;
+    }
+    @keyframes fadeIn {
+      from {opacity:0;transform:translateY(-10px)}
+      to {opacity:1;transform:translateY(0)}
+    }
+
+    #searchBtn {
+  background-color: #fca33c; 
+  color: white;
+  font-weight: bold;
+}
+
+#searchBtn:hover {
+  background-color: #fab86c; 
+}
+
+#closeBtn {
+  background-color: #fca33c; 
+  color: white;
+  font-weight: bold;
+}
+
+#closeBtn:hover {
+  background-color: #fab86c; 
+}
+ 
+</style>
+</head>
+<body>
+  
+  <main></main>
+
+  <div id="modal">
+    <div id="modalContent">
+      <input type="text" id="searchInput" placeholder="Enter word...">
+      <button id="searchBtn">Search</button>
+      <button id="closeBtn" onclick="closeModal()">Close</button>
+      <ul id="resultsList"></ul>
+    </div>
+  </div>
+
+  <script>
+// state machine implementation for open/close modals
+function openModal() {
+  transitionTo('MODAL_OPEN');
+}
+
+function closeModal() {
+  transitionTo('MODAL_CLOSED');
+}
+// Songlist class to manage songs 
+class SongList {
+  constructor() {
+    this.songs = [];
+  }
+
+  addSong(song) {
+    this.songs.push(song);
+  }
+
+  clearSongs() {
+    this.songs = [];
+  }
+
+  getSongs() {
+    return this.songs;
+  }
+
+  filterSongs(query) {
+    const lower = query.toLowerCase();
+    return this.songs.filter(song =>
+      song.trackName.toLowerCase().includes(lower) ||
+      song.artistName.toLowerCase().includes(lower)
+    );
+  }
+}
+
+const songList = new SongList(); // create instance
+
+    document.getElementById("searchBtn").addEventListener("click", () => {
+      const input = document.getElementById("searchInput").value.toLowerCase();
+      if (!input) return;
+
+      fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(input)}&entity=song&limit=10`)
+        .then(res => res.json())
+        .then(data => {
+  const resultsList = document.getElementById("resultsList");
+  resultsList.innerHTML = "";
+
+  songList.clearSongs(); // clear old data
+  data.results.forEach(song => songList.addSong(song)); // store all fetched
+
+  const filtered = songList.filterSongs(input);
+
+  if (filtered.length > 0) {
+    filtered.forEach(song => {
+      const li = document.createElement("li");
+      li.style.display = "flex";
+      li.style.alignItems = "center";
+      li.style.marginBottom = "12px";
+      li.style.padding = "10px";
+      li.style.borderRadius = "8px";
+      li.style.backgroundColor = "#f9f9f9";
+      li.style.boxShadow = "0 2px 6px rgba(0,0,0,0.1)";
+      li.style.cursor = "pointer";
+
+      const img = document.createElement("img");
+      img.src = song.artworkUrl100;
+      img.alt = "Album Art";
+      img.style.width = "50px";
+      img.style.height = "50px";
+      img.style.borderRadius = "6px";
+      img.style.marginRight = "12px";
+
+      const text = document.createElement("span");
+      text.textContent = `${song.trackName} - ${song.artistName}`;
+      text.style.fontSize = "16px";
+
+      li.appendChild(img);
+      li.appendChild(text);
+
+      li.addEventListener("click", () => {
+        showSongDetails(song);
+      });
+
+      resultsList.appendChild(li);
+    });
+    } else {
+    resultsList.innerHTML = "<li>No results found in song titles</li>";
+    }
+    })
+      .catch(err => {
+          console.error("Error fetching from API:", err);
+        });
+    });
+    
+let songDetailsModal;
+
+function setup() {
+  noCanvas();
+  let buttonContainer = createDiv();
+  buttonContainer.id('buttonContainer');
+
+  let openBtn = createButton("TITLE LIBRARY!");
+  openBtn.id("openBtn");
+  openBtn.parent(buttonContainer);
+  openBtn.mousePressed(openModal);
+
+  createSongDetailsModal(); 
+}
+
+function createSongDetailsModal() {
+  songDetailsModal = document.createElement('div');
+  songDetailsModal.id = 'songDetailsModal';
+  songDetailsModal.style.display = 'none'; 
+  songDetailsModal.style.position = 'fixed';
+  songDetailsModal.style.top = '0';
+  songDetailsModal.style.left = '0';
+  songDetailsModal.style.width = '100%';
+  songDetailsModal.style.height = '100%';
+  songDetailsModal.style.backgroundColor = 'rgba(0,0,0,0.6)';
+  songDetailsModal.style.zIndex = '200';
+  songDetailsModal.style.justifyContent = 'center';
+  songDetailsModal.style.alignItems = 'center';
+  songDetailsModal.style.display = 'none'; // hide it at the beginning
+
+  const contentBox = document.createElement('div');
+  contentBox.style.background = 'white';
+  contentBox.style.padding = '20px';
+  contentBox.style.borderRadius = '16px';
+  contentBox.style.maxWidth = '400px';
+  contentBox.style.width = '90%';
+  contentBox.style.position = 'relative';
+  contentBox.style.boxSizing = 'border-box';
+  contentBox.style.overflow = 'hidden';
+
+  const closeButton = document.createElement('button');
+  closeButton.innerHTML = '×';
+  closeButton.style.position = 'absolute';
+  closeButton.style.top = '10px';
+  closeButton.style.right = '16px';
+  closeButton.style.background = 'none';
+  closeButton.style.border = 'none';
+  closeButton.style.fontSize = '28px';
+  closeButton.style.fontWeight = 'bold';
+  closeButton.style.color = '#333';
+  closeButton.style.cursor = 'pointer';
+  closeButton.style.lineHeight = '1';
+  closeButton.style.padding = '0';
+  closeButton.style.margin = '0';
+  
+  closeButton.addEventListener('mouseover', () => closeButton.style.color = '#ff3333');
+  closeButton.addEventListener('mouseout', () => closeButton.style.color = '#333');
+  closeButton.addEventListener('click', closeSongDetails);
+
+  const content = document.createElement('div');
+  content.id = 'songDetailsContent';
+  content.style.marginTop = '40px';
+  content.style.textAlign = 'center';
+
+  contentBox.appendChild(closeButton);
+  contentBox.appendChild(content);
+  songDetailsModal.appendChild(contentBox);
+  document.body.appendChild(songDetailsModal);
+}
+let currentState = 'INIT';
+
+const states = {
+  INIT: {
+    enter: () => {
+      document.getElementById("modal").style.display = "none";
+    }
+  },
+  MODAL_OPEN: {
+    enter: () => {
+      document.getElementById("modal").style.display = "flex";
+    }
+  },
+  MODAL_CLOSED: {
+    enter: () => {
+      document.getElementById("modal").style.display = "none";
+      document.getElementById("resultsList").innerHTML = "";
+      document.getElementById("searchInput").value = "";
+    }
+  },
+  SONG_DETAIL_OPEN: {
+    enter: () => {
+      songDetailsModal.style.display = "flex";
+    }
+  },
+  SONG_DETAIL_CLOSED: {
+    enter: () => {
+      songDetailsModal.style.display = "none";
+    }
+  }
+};
+
+function transitionTo(stateName) {
+  currentState = stateName;
+  if (states[stateName] && typeof states[stateName].enter === 'function') {
+    states[stateName].enter();
+  }
+}
+
+function closeSongDetails() {
+  transitionTo('SONG_DETAIL_CLOSED');
+}
+
+document.getElementById("searchBtn").addEventListener("click", () => {
+  const input = document.getElementById("searchInput").value.toLowerCase();
+  if (!input) return;
+
+  fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(input)}&entity=song&limit=20`)
+    .then(res => res.json())
+    .then(data => {
+      const resultsList = document.getElementById("resultsList");
+      resultsList.innerHTML = "";
+
+      if (data.results.length > 0) {
+        const filtered = data.results.filter(song => 
+          song.trackName.toLowerCase().includes(input) ||
+          song.artistName.toLowerCase().includes(input)
+        );
+
+        if (filtered.length > 0) {
+          filtered.forEach(song => {
+            const li = document.createElement("li");
+            li.style.display = "flex";
+            li.style.alignItems = "center";
+            li.style.marginBottom = "12px";
+            li.style.padding = "10px";
+            li.style.borderRadius = "8px";
+            li.style.backgroundColor = "#f9f9f9";
+            li.style.boxShadow = "0 2px 6px rgba(0,0,0,0.1)";
+            li.style.cursor = "pointer";
+
+            const img = document.createElement("img");
+            img.src = song.artworkUrl100;
+            img.alt = "Album Art";
+            img.style.width = "50px";
+            img.style.height = "50px";
+            img.style.borderRadius = "6px";
+            img.style.marginRight = "12px";
+
+            const text = document.createElement("span");
+            text.textContent = `${song.trackName} - ${song.artistName}`;
+            text.style.fontSize = "16px";
+
+            li.appendChild(img);
+            li.appendChild(text);
+
+            // CLICK -open song details modal
+            li.addEventListener("click", () => {
+              showSongDetails(song);
+            });
+
+            resultsList.appendChild(li);
+          });
+        } else {
+          resultsList.innerHTML = "<li>No results found in song titles</li>";
+        }
+      } else {
+        resultsList.innerHTML = "<li>No song titles found</li>";
+      }
+    })
+    .catch(err => {
+      console.error("Error fetching from API:", err);
+    });
+});
+
+function showSongDetails(song) {
+  const content = `
+    <img src="${song.artworkUrl100}" alt="Album Art" style="border-radius:12px;margin-bottom:12px;width:100px;height:100px;">
+    <h2 style="margin:10px 0;">${song.trackName}</h2>
+    <p><strong>Artist:</strong> ${song.artistName}</p>
+    <p><strong>Album:</strong> ${song.collectionName}</p>
+    <p><strong>Release Date:</strong> ${new Date(song.releaseDate).toLocaleDateString()}</p>
+    ${song.previewUrl ? `<audio controls src="${song.previewUrl}" style="margin-top:12px;width:100%;"></audio>` : '<p>No preview available</p>'}
+  `;
+  document.getElementById("songDetailsContent").innerHTML = content;
+
+  transitionTo('SONG_DETAIL_OPEN');
+}
+  </script>
+</body>
+</html>
