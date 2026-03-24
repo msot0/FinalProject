@@ -183,70 +183,13 @@ class SongList {
   filterSongs(query) {
     const lower = query.toLowerCase();
     return this.songs.filter(song =>
-      song.trackName.toLowerCase().includes(lower) ||
-      song.artistName.toLowerCase().includes(lower)
+      song.title.toLowerCase().includes(lower)
     );
   }
 }
 
+// fetch moved into the search button click handler to avoid using an undefined `input` and to fix scope/braces
 const songList = new SongList(); // create instance
-
-    document.getElementById("searchBtn").addEventListener("click", () => {
-      const input = document.getElementById("searchInput").value.toLowerCase();
-      if (!input) return;
-
-      fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(input)}&entity=song&limit=10`)
-        .then(res => res.json())
-        .then(data => {
-  const resultsList = document.getElementById("resultsList");
-  resultsList.innerHTML = "";
-
-  songList.clearSongs(); // clear old data
-  data.results.forEach(song => songList.addSong(song)); // store all fetched
-
-  const filtered = songList.filterSongs(input);
-
-  if (filtered.length > 0) {
-    filtered.forEach(song => {
-      const li = document.createElement("li");
-      li.style.display = "flex";
-      li.style.alignItems = "center";
-      li.style.marginBottom = "12px";
-      li.style.padding = "10px";
-      li.style.borderRadius = "8px";
-      li.style.backgroundColor = "#f9f9f9";
-      li.style.boxShadow = "0 2px 6px rgba(0,0,0,0.1)";
-      li.style.cursor = "pointer";
-
-      const img = document.createElement("img");
-      img.src = song.artworkUrl100;
-      img.alt = "Album Art";
-      img.style.width = "50px";
-      img.style.height = "50px";
-      img.style.borderRadius = "6px";
-      img.style.marginRight = "12px";
-
-      const text = document.createElement("span");
-      text.textContent = `${song.trackName} - ${song.artistName}`;
-      text.style.fontSize = "16px";
-
-      li.appendChild(img);
-      li.appendChild(text);
-
-      li.addEventListener("click", () => {
-        showSongDetails(song);
-      });
-
-      resultsList.appendChild(li);
-    });
-    } else {
-    resultsList.innerHTML = "<li>No results found in song titles</li>";
-    }
-    })
-      .catch(err => {
-          console.error("Error fetching from API:", err);
-        });
-    });
     
 let songDetailsModal;
 
@@ -255,7 +198,7 @@ function setup() {
   let buttonContainer = createDiv();
   buttonContainer.id('buttonContainer');
 
-  let openBtn = createButton("TITLE LIBRARY!");
+  let openBtn = createButton("SEARCH A SONG");
   openBtn.id("openBtn");
   openBtn.parent(buttonContainer);
   openBtn.mousePressed(openModal);
@@ -291,17 +234,20 @@ function createSongDetailsModal() {
   const closeButton = document.createElement('button');
   closeButton.innerHTML = '×';
   closeButton.style.position = 'absolute';
-  closeButton.style.top = '10px';
-  closeButton.style.right = '16px';
-  closeButton.style.background = 'none';
-  closeButton.style.border = 'none';
-  closeButton.style.fontSize = '28px';
-  closeButton.style.fontWeight = 'bold';
-  closeButton.style.color = '#333';
-  closeButton.style.cursor = 'pointer';
-  closeButton.style.lineHeight = '1';
-  closeButton.style.padding = '0';
-  closeButton.style.margin = '0';
+closeButton.style.top = '12px';
+closeButton.style.right = '12px';
+closeButton.style.width = '36px';
+closeButton.style.height = '36px';
+closeButton.style.display = 'flex';
+closeButton.style.alignItems = 'center';
+closeButton.style.justifyContent = 'center';
+closeButton.style.background = '#f5f5f5';
+closeButton.style.border = 'none';
+closeButton.style.borderRadius = '50%';
+closeButton.style.fontSize = '22px';
+closeButton.style.fontWeight = 'bold';
+closeButton.style.color = '#333';
+closeButton.style.cursor = 'pointer';
   
   closeButton.addEventListener('mouseover', () => closeButton.style.color = '#ff3333');
   closeButton.addEventListener('mouseout', () => closeButton.style.color = '#333');
@@ -361,80 +307,81 @@ function closeSongDetails() {
 }
 
 document.getElementById("searchBtn").addEventListener("click", () => {
-  const input = document.getElementById("searchInput").value.toLowerCase();
+  const input = document.getElementById("searchInput").value.trim();
   if (!input) return;
 
-  fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(input)}&entity=song&limit=20`)
+  // Use a CORS proxy for Deezer (AllOrigins) — you can replace with your preferred proxy or backend
+  const url = `https://corsproxy.io/?https://api.deezer.com/search?q=${encodeURIComponent(input)}`;
+  fetch(url)
     .then(res => res.json())
     .then(data => {
       const resultsList = document.getElementById("resultsList");
       resultsList.innerHTML = "";
+      songList.clearSongs();
+      (data.data || []).forEach(song => songList.addSong(song));
 
-      if (data.results.length > 0) {
-        const filtered = data.results.filter(song => 
-          song.trackName.toLowerCase().includes(input) ||
-          song.artistName.toLowerCase().includes(input)
-        );
+      const filtered = songList.filterSongs(input);
 
-        if (filtered.length > 0) {
-          filtered.forEach(song => {
-            const li = document.createElement("li");
-            li.style.display = "flex";
-            li.style.alignItems = "center";
-            li.style.marginBottom = "12px";
-            li.style.padding = "10px";
-            li.style.borderRadius = "8px";
-            li.style.backgroundColor = "#f9f9f9";
-            li.style.boxShadow = "0 2px 6px rgba(0,0,0,0.1)";
-            li.style.cursor = "pointer";
+      if (filtered.length > 0) {
+        filtered.forEach(song => {
+          const li = document.createElement("li");
+          li.style.display = "flex";
+          li.style.alignItems = "center";
+          li.style.marginBottom = "12px";
+          li.style.padding = "10px";
+          li.style.borderRadius = "8px";
+          li.style.backgroundColor = "#f9f9f9";
+          li.style.boxShadow = "0 2px 6px rgba(0,0,0,0.1)";
+          li.style.cursor = "pointer";
 
-            const img = document.createElement("img");
-            img.src = song.artworkUrl100;
-            img.alt = "Album Art";
-            img.style.width = "50px";
-            img.style.height = "50px";
-            img.style.borderRadius = "6px";
-            img.style.marginRight = "12px";
+          const img = document.createElement("img");
+          img.src = song.album.cover_medium;
+          img.alt = "Album Art";
+          img.style.width = "50px";
+          img.style.height = "50px";
+          img.style.borderRadius = "6px";
+          img.style.marginRight = "12px";
 
-            const text = document.createElement("span");
-            text.textContent = `${song.trackName} - ${song.artistName}`;
-            text.style.fontSize = "16px";
+          const text = document.createElement("span");
+          text.textContent = `${song.title} - ${song.artist.name}`;
+          text.style.fontSize = "16px";
 
-            li.appendChild(img);
-            li.appendChild(text);
+          li.appendChild(img);
+          li.appendChild(text);
 
-            // CLICK -open song details modal
-            li.addEventListener("click", () => {
-              showSongDetails(song);
-            });
-
-            resultsList.appendChild(li);
+          li.addEventListener("click", () => {
+            showSongDetails(song);
           });
-        } else {
-          resultsList.innerHTML = "<li>No results found in song titles</li>";
-        }
+
+          resultsList.appendChild(li);
+        });
       } else {
-        resultsList.innerHTML = "<li>No song titles found</li>";
+        resultsList.innerHTML = "<li>No results found in song titles</li>";
       }
     })
     .catch(err => {
       console.error("Error fetching from API:", err);
     });
 });
+document.getElementById("searchInput").addEventListener("keypress", e => {
+  if (e.key === "Enter") {
+    document.getElementById("searchBtn").click();
+  }
+});
 
 function showSongDetails(song) {
   const content = `
-    <img src="${song.artworkUrl100}" alt="Album Art" style="border-radius:12px;margin-bottom:12px;width:100px;height:100px;">
-    <h2 style="margin:10px 0;">${song.trackName}</h2>
-    <p><strong>Artist:</strong> ${song.artistName}</p>
-    <p><strong>Album:</strong> ${song.collectionName}</p>
-    <p><strong>Release Date:</strong> ${new Date(song.releaseDate).toLocaleDateString()}</p>
-    ${song.previewUrl ? `<audio controls src="${song.previewUrl}" style="margin-top:12px;width:100%;"></audio>` : '<p>No preview available</p>'}
+    <img src="${song.album.cover_medium}" alt="Album Art" style="border-radius:12px;margin-bottom:12px;width:100px;height:100px;">
+   <h2>${song.title}</h2>
+   <p><strong>Artist:</strong> ${song.artist.name}</p>
+   <p><strong>Album:</strong> ${song.album.title}</p>
+   ${song.preview ? `<audio controls src="${song.preview}" style="margin-top:12px;width:100%;"></audio>` : '<p>No preview available</p>'}
   `;
   document.getElementById("songDetailsContent").innerHTML = content;
 
   transitionTo('SONG_DETAIL_OPEN');
 }
-  </script>
+
+</script>
 </body>
 </html>
