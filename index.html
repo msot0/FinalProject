@@ -2,7 +2,7 @@
 <html>
 <head> 
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;700&display=swap" rel="stylesheet">
-
+ 
   <meta charset="UTF-8">
   <title>Song Finder</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.js"></script>
@@ -28,7 +28,7 @@
   background-color: rgba(0, 0, 0, 0.6);
   z-index: 100;
 }
-
+ 
 #modalContent {
   background: #ffffff;
   padding: 30px;
@@ -41,7 +41,7 @@
   align-items: center;
   justify-content: center;
 }
-
+ 
     input, button {
       width:100%;
       margin-top:12px;
@@ -50,7 +50,7 @@
       border:none;
       border-radius:8px;
     }
-
+ 
     input {
      background-color: #f0f0f0;
      text-align: center;
@@ -117,23 +117,23 @@
       from {opacity:0;transform:translateY(-10px)}
       to {opacity:1;transform:translateY(0)}
     }
-
+ 
     #searchBtn {
   background-color: #fca33c; 
   color: white;
   font-weight: bold;
 }
-
+ 
 #searchBtn:hover {
   background-color: #fab86c; 
 }
-
+ 
 #closeBtn {
   background-color: #fca33c; 
   color: white;
   font-weight: bold;
 }
-
+ 
 #closeBtn:hover {
   background-color: #fab86c; 
 }
@@ -143,7 +143,7 @@
 <body>
   
   <main></main>
-
+ 
   <div id="modal">
     <div id="modalContent">
       <input type="text" id="searchInput" placeholder="Enter word...">
@@ -152,13 +152,13 @@
       <ul id="resultsList"></ul>
     </div>
   </div>
-
+ 
   <script>
 // state machine implementation for open/close modals
 function openModal() {
   transitionTo('MODAL_OPEN');
 }
-
+ 
 function closeModal() {
   transitionTo('MODAL_CLOSED');
 }
@@ -167,19 +167,19 @@ class SongList {
   constructor() {
     this.songs = [];
   }
-
+ 
   addSong(song) {
     this.songs.push(song);
   }
-
+ 
   clearSongs() {
     this.songs = [];
   }
-
+ 
   getSongs() {
     return this.songs;
   }
-
+ 
   filterSongs(query) {
     const lower = query.toLowerCase();
     return this.songs.filter(song =>
@@ -187,25 +187,25 @@ class SongList {
     );
   }
 }
-
+ 
 // fetch moved into the search button click handler to avoid using an undefined `input` and to fix scope/braces
 const songList = new SongList(); // create instance
     
 let songDetailsModal;
-
+ 
 function setup() {
   noCanvas();
   let buttonContainer = createDiv();
   buttonContainer.id('buttonContainer');
-
+ 
   let openBtn = createButton("SEARCH A SONG");
   openBtn.id("openBtn");
   openBtn.parent(buttonContainer);
   openBtn.mousePressed(openModal);
-
+ 
   createSongDetailsModal(); 
 }
-
+ 
 function createSongDetailsModal() {
   songDetailsModal = document.createElement('div');
   songDetailsModal.id = 'songDetailsModal';
@@ -220,7 +220,7 @@ function createSongDetailsModal() {
   songDetailsModal.style.justifyContent = 'center';
   songDetailsModal.style.alignItems = 'center';
   songDetailsModal.style.display = 'none'; // hide it at the beginning
-
+ 
   const contentBox = document.createElement('div');
   contentBox.style.background = 'white';
   contentBox.style.padding = '20px';
@@ -230,7 +230,7 @@ function createSongDetailsModal() {
   contentBox.style.position = 'relative';
   contentBox.style.boxSizing = 'border-box';
   contentBox.style.overflow = 'hidden';
-
+ 
   const closeButton = document.createElement('button');
   closeButton.innerHTML = '×';
   closeButton.style.position = 'absolute';
@@ -252,19 +252,19 @@ closeButton.style.cursor = 'pointer';
   closeButton.addEventListener('mouseover', () => closeButton.style.color = '#ff3333');
   closeButton.addEventListener('mouseout', () => closeButton.style.color = '#333');
   closeButton.addEventListener('click', closeSongDetails);
-
+ 
   const content = document.createElement('div');
   content.id = 'songDetailsContent';
   content.style.marginTop = '40px';
   content.style.textAlign = 'center';
-
+ 
   contentBox.appendChild(closeButton);
   contentBox.appendChild(content);
   songDetailsModal.appendChild(contentBox);
   document.body.appendChild(songDetailsModal);
 }
 let currentState = 'INIT';
-
+ 
 const states = {
   INIT: {
     enter: () => {
@@ -294,34 +294,51 @@ const states = {
     }
   }
 };
-
+ 
 function transitionTo(stateName) {
   currentState = stateName;
   if (states[stateName] && typeof states[stateName].enter === 'function') {
     states[stateName].enter();
   }
 }
-
+ 
 function closeSongDetails() {
   transitionTo('SONG_DETAIL_CLOSED');
 }
-
+ 
 document.getElementById("searchBtn").addEventListener("click", () => {
   const input = document.getElementById("searchInput").value.trim();
   if (!input) return;
-
-  // Use a CORS proxy for Deezer (AllOrigins) — you can replace with your preferred proxy or backend
-  const url = `https://corsproxy.io/?https://api.deezer.com/search?q=${encodeURIComponent(input)}`;
+ 
+  // Switched from Deezer+corsproxy.io to the iTunes Search API directly.
+  // iTunes supports CORS natively (no proxy needed at all), so this removes
+  // the fragile third-party dependency entirely - corsproxy.io's free tier
+  // now only works from localhost, which is exactly why this broke once
+  // the site went live on GitHub Pages but seemed fine during development.
+  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(input)}&media=music&limit=25`;
   fetch(url)
     .then(res => res.json())
     .then(data => {
       const resultsList = document.getElementById("resultsList");
       resultsList.innerHTML = "";
       songList.clearSongs();
-      (data.data || []).forEach(song => songList.addSong(song));
-
+ 
+      // Normalize iTunes' response shape into the same shape this code
+      // was originally written for (Deezer's), so nothing below this
+      // line needs to change.
+      const songs = (data.results || []).map(item => ({
+        title: item.trackName,
+        artist: { name: item.artistName },
+        album: {
+          title: item.collectionName,
+          cover_medium: item.artworkUrl100 ? item.artworkUrl100.replace('100x100', '300x300') : ''
+        },
+        preview: item.previewUrl
+      }));
+      songs.forEach(song => songList.addSong(song));
+ 
       const filtered = songList.filterSongs(input);
-
+ 
       if (filtered.length > 0) {
         filtered.forEach(song => {
           const li = document.createElement("li");
@@ -333,7 +350,7 @@ document.getElementById("searchBtn").addEventListener("click", () => {
           li.style.backgroundColor = "#f9f9f9";
           li.style.boxShadow = "0 2px 6px rgba(0,0,0,0.1)";
           li.style.cursor = "pointer";
-
+ 
           const img = document.createElement("img");
           img.src = song.album.cover_medium;
           img.alt = "Album Art";
@@ -341,18 +358,18 @@ document.getElementById("searchBtn").addEventListener("click", () => {
           img.style.height = "50px";
           img.style.borderRadius = "6px";
           img.style.marginRight = "12px";
-
+ 
           const text = document.createElement("span");
           text.textContent = `${song.title} - ${song.artist.name}`;
           text.style.fontSize = "16px";
-
+ 
           li.appendChild(img);
           li.appendChild(text);
-
+ 
           li.addEventListener("click", () => {
             showSongDetails(song);
           });
-
+ 
           resultsList.appendChild(li);
         });
       } else {
@@ -368,7 +385,7 @@ document.getElementById("searchInput").addEventListener("keypress", e => {
     document.getElementById("searchBtn").click();
   }
 });
-
+ 
 function showSongDetails(song) {
   const content = `
     <img src="${song.album.cover_medium}" alt="Album Art" style="border-radius:12px;margin-bottom:12px;width:100px;height:100px;">
@@ -378,10 +395,10 @@ function showSongDetails(song) {
    ${song.preview ? `<audio controls src="${song.preview}" style="margin-top:12px;width:100%;"></audio>` : '<p>No preview available</p>'}
   `;
   document.getElementById("songDetailsContent").innerHTML = content;
-
+ 
   transitionTo('SONG_DETAIL_OPEN');
 }
-
+ 
 </script>
 </body>
 </html>
